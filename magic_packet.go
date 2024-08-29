@@ -1,4 +1,4 @@
-package wol
+package gowake
 
 import (
 	"bytes"

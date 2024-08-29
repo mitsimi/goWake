@@ -1,6 +1,12 @@
 # goWake
 Small and simple library to broadcast magic packets
 
+## Installation
+Install the latest version with:
+```sh
+$ go get -u github.com/mitsimi/goWake
+```
+
 ## Usage 
 
 The usage is trivial. Call the `Send()` method with the mac address as parameter. It will send a magic packet via a broadcast (`255.255.255.255`) on port _9_. 

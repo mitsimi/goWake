@@ -1,4 +1,4 @@
-package gowake
+package goWake
 
 import (
 	"bytes"
@@ -24,8 +24,8 @@ type MagicPacket struct {
 	payload [16]MACAddress
 }
 
-// NewMagicPacket function accepts a MAC Address string, and returns a pointer to
-// a MagicPacket object. A Magic Packet is a broadcast frame which
+// NewMagicPacket accepts a MAC address string, and returns a pointer to
+// a MagicPacket object. A magic packet is a broadcast frame which
 // contains 6 bytes of 0xFF followed by 16 repetitions of a given mac address.
 func NewMagicPacket(mac string) (*MagicPacket, error) {
 	var packet MagicPacket
@@ -43,8 +43,7 @@ func NewMagicPacket(mac string) (*MagicPacket, error) {
 		return nil, err
 	}
 
-	// Copy bytes from the returned HardwareAddr -> a fixed size
-	// MACAddress
+	// Copy bytes from the returned HardwareAddr -> a fixed size MACAddress
 	for idx := range macAddr {
 		macAddr[idx] = hwAddr[idx]
 	}

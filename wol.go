@@ -1,4 +1,4 @@
-package gowake
+package goWake
 
 import (
 	"bytes"
@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	DefaultPort      = 9                              // Default port for discard protocol
-	DefaultBroadcast = []byte{0xFF, 0xFF, 0xFF, 0xFF} // 255.255.255.255
+	defaultBroadcast = []byte{0xFF, 0xFF, 0xFF, 0xFF} // 255.255.255.255
 )
 
 // Protocol defines the available protocols for sending a magic packet.
@@ -21,45 +20,49 @@ const (
 	Echo                    // ICMP-based Echo protocol
 )
 
-// Send a magic packet to a given MAC address using the default protocol (Discard/UDP).
-func Send(mac string) error {
-	_, err := SendWithInterface(mac, "", Discard)
-	return err
+// Wake sends a magic packet to the specified MAC address to wake up a remote host.
+// It returns an error if the magic packet could not be sent.
+// By default, it uses the UDP-based Discard protocol (port 9) and sends it over all interfaces.
+// The protocol and network interface can be customized using the `WithProtocol` and `WithInterface` options.
+// If the Echo protocol is used, it will wait for an echo response from the remote host.
+func Wake(mac string, opts ...Option) error {
+	opt := options{protocol: Discard, iface: ""}
+	for _, o := range opts {
+		o(&opt)
+	}
+	return wake(mac, opt)
 }
 
-// SendWithInterface sends a magic packet to a given MAC address, with an optional network
-// interface and specified protocol. If iface is empty, it uses the default broadcast address.
-// Returns the echo message if the Echo protocol is used.
-func SendWithInterface(mac string, iface string, protocol Protocol) ([]byte, error) {
+func wake(mac string, opt options) error {
 	var localAddr net.Addr
-	var broadcastAddr net.IP = DefaultBroadcast
+	var broadcastAddr net.IP = defaultBroadcast
 
-	if iface != "" {
+	if iface := opt.iface; iface != "" {
 		ipAddr, err := ipFromInterface(iface)
 		if err != nil {
-			return nil, errors.Join(fmt.Errorf("unable to get address for interface %s", iface), err)
+			return errors.Join(fmt.Errorf("unable to get address for interface %s", iface), err)
 		}
 
 		localAddr = &net.UDPAddr{IP: ipAddr.IP}
 		broadcastAddr, err = subnetBroadcastIP(ipAddr)
 		if err != nil {
-			return nil, errors.Join(fmt.Errorf("unable to calculate broadcast address for interface %s", iface), err)
+			return errors.Join(fmt.Errorf("unable to calculate broadcast address for interface %s", iface), err)
 		}
 	}
 
-	switch protocol {
+	switch opt.protocol {
 	case Discard:
-		return nil, sendUDPDiscard(mac, broadcastAddr, localAddr)
+		return sendUDPDiscard(mac, broadcastAddr, localAddr)
 	case Echo:
 		return sendICMPEcho(mac, broadcastAddr, localAddr)
 	default:
-		return nil, fmt.Errorf("unsupported protocol")
+		return fmt.Errorf("unsupported protocol")
 	}
 }
 
 // sendUDPDiscard sends the magic packet using UDP on the discard protocol (port 9).
 func sendUDPDiscard(mac string, broadcastAddr net.IP, localAddr net.Addr) error {
-	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", broadcastAddr.String(), DefaultPort))
+	udpAddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", broadcastAddr.String(), 9))
 	if err != nil {
 		return err
 	}
@@ -87,27 +90,27 @@ func sendUDPDiscard(mac string, broadcastAddr net.IP, localAddr net.Addr) error 
 	return err
 }
 
-// sendICMPEcho sends the magic packet using ICMP for the Echo protocol and returns the echo message.
-func sendICMPEcho(mac string, broadcastAddr net.IP, localAddr net.Addr) ([]byte, error) {
+// sendICMPEcho sends the magic packet using ICMP for the Echo protocol and awaits an answer.
+func sendICMPEcho(mac string, broadcastAddr net.IP, localAddr net.Addr) error {
 	conn, err := net.DialIP("ip4:icmp", localAddr.(*net.IPAddr), &net.IPAddr{IP: broadcastAddr})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer conn.Close()
 
 	packet, err := NewMagicPacket(mac)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	data, err := packet.Marshal()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Send the packet over ICMP
 	if _, err := conn.Write(data); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Wait for an echo response
@@ -115,15 +118,14 @@ func sendICMPEcho(mac string, broadcastAddr net.IP, localAddr net.Addr) ([]byte,
 	reply := make([]byte, 1024)
 	n, err := conn.Read(reply)
 	if err != nil {
-		return nil, fmt.Errorf("no response received: %v", err)
+		return fmt.Errorf("no response received: %v", err)
 	}
 
 	if !bytes.Equal(data, reply[:n]) {
-		return nil, fmt.Errorf("received response does not match the sent packet")
+		return fmt.Errorf("received response does not match the sent packet")
 	}
 
-	fmt.Printf("Echo response received for MAC %s\n", mac)
-	return reply[:n], nil
+	return nil
 }
 
 // ipFromInterface returns a `*net.IPNet` from a network interface name.

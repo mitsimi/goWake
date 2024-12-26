@@ -1,7 +1,9 @@
 package goWake
 
+import "github.com/mitsimi/goWake/v2/protocol"
+
 type options struct {
-	protocol Protocol
+	protocol protocol.Proto
 	iface    string
 }
 
@@ -10,9 +12,9 @@ type options struct {
 type Option func(*options)
 
 // WithProtocol sets the protocol used for sending the magic packet.
-func WithProtocol(protocol Protocol) Option {
+func WithProtocol(proto protocol.Proto) Option {
 	return func(p *options) {
-		p.protocol = protocol
+		p.protocol = proto
 	}
 }
 

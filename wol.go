@@ -6,18 +6,12 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/mitsimi/goWake/v2/protocol"
 )
 
 var (
 	defaultBroadcast = []byte{0xFF, 0xFF, 0xFF, 0xFF} // 255.255.255.255
-)
-
-// Protocol defines the available protocols for sending a magic packet.
-type Protocol int
-
-const (
-	Discard Protocol = iota // UDP-based Discard protocol (port 9)
-	Echo                    // ICMP-based Echo protocol
 )
 
 // Wake sends a magic packet to the specified MAC address to wake up a remote host.
@@ -26,7 +20,7 @@ const (
 // The protocol and network interface can be customized using the `WithProtocol` and `WithInterface` options.
 // If the Echo protocol is used, it will wait for an echo response from the remote host.
 func Wake(mac string, opts ...Option) error {
-	opt := options{protocol: Discard, iface: ""}
+	opt := options{protocol: protocol.Discard, iface: ""}
 	for _, o := range opts {
 		o(&opt)
 	}
@@ -51,9 +45,9 @@ func wake(mac string, opt options) error {
 	}
 
 	switch opt.protocol {
-	case Discard:
+	case protocol.Discard:
 		return sendUDPDiscard(mac, broadcastAddr, localAddr)
-	case Echo:
+	case protocol.Echo:
 		return sendICMPEcho(mac, broadcastAddr, localAddr)
 	default:
 		return fmt.Errorf("unsupported protocol")
